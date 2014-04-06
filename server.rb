@@ -32,7 +32,7 @@ module SimpleFtp
                 conn = Conn.new(@ctrl_socket.accept)
 
                 Thread.new do 
-                    conn.respond "220 OHAI"
+                    conn.respond "220 Simple Ftp Server by lostleaf"
 
                     handler = SimpleFtp::CMDHandler.new(conn)
 
@@ -42,7 +42,9 @@ module SimpleFtp
                         if request
                             result = handler.handle(request)
                             conn.respond result
+                            puts request
                             puts result
+                            puts
                         else
                             conn.close
                             break

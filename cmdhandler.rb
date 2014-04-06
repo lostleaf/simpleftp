@@ -25,14 +25,14 @@ module SimpleFtp
                 else
                     @pwd << name unless name == '.'
                 end
-                "250 directory changed to #{usr_pwd}"
+                "250 CWD successful. \"#{usr_pwd}\" is current directory"
             else
-                "550 directory not found"
+                "550 CWD failed. directory not found"
             end
         end
 
         def handle_pwd
-            "257 #{usr_pwd} is the current directory"
+            "257 \"#{usr_pwd}\" is the current directory"
         end
 
         def handle_port option
@@ -46,18 +46,18 @@ module SimpleFtp
 
         def handle_retr name
             file = File.open(abs_path(name), 'r')
-            conn.respond "125 Data transfer starting #{file.size} bytes"
+            @conn.respond "125 Data transfer starting #{file.size} bytes"
 
             bytes = IO.copy_stream(file, @data_socket)
             @data_socket.close
 
-            "226 Closing data connection, sent #{bytes} bytes"
+            "226 Closing data connection, sent #{data.length} bytes"
         end
 
         def handle_list
-            conn.respond "125 Opening data connection for file list"
+            @conn.respond "125 Opening data connection for file list"
 
-            result = Dir.entries(pwd).join(CRLF)
+            result = Dir.entries(abs_path('')).join(CRLF)
             @data_socket.write(result)
             @data_socket.close
 
@@ -65,7 +65,7 @@ module SimpleFtp
         end
 
         def handle_quit
-            "221 Ciao"
+            "221 Goodbye"
         end
         
         def handle_user
@@ -73,7 +73,7 @@ module SimpleFtp
         end
 
         def handle_syst
-            "215 UNIX Working With FTP"
+            "215 UNIX Simple FTP"
         end
 
         def handle(data)
@@ -81,6 +81,8 @@ module SimpleFtp
             case cmd.upcase
             when 'USER'
                 handle_user 
+            when 'SYST'
+                handle_syst
             when 'CWD'
                 handle_cwd option
             when 'PWD'
@@ -94,7 +96,7 @@ module SimpleFtp
             when 'QUIT'
                 handle_quit
             else
-                puts data
+                # puts data
                 "502 Don't know how to respond to #{cmd}"
             end
         end

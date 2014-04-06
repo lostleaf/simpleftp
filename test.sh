@@ -1,7 +1,8 @@
-ftp  -v 127.0.0.1 12345 <<SCRIPT
-cd /var/log
+ftp -a -v 127.0.0.1 12345 <<SCRIPT
+cd 123
 pwd
 dir
-get kernel.log
+get readme
+get 456.pdf
 SCRIPT
 
