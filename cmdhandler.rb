@@ -48,10 +48,10 @@ module SimpleFtp
             file = File.open(abs_path(name), 'r')
             @conn.respond "125 Data transfer starting #{file.size} bytes"
 
-            bytes = IO.copy_stream(file, @data_socket)
+            size_bytes = IO.copy_stream(file, @data_socket)
             @data_socket.close
 
-            "226 Closing data connection, sent #{data.length} bytes"
+            "226 Closing data connection, sent #{size_bytes} bytes"
         end
 
         def handle_list
