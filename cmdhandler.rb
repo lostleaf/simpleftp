@@ -7,6 +7,7 @@ module SimpleFtp
             @pwd  = ['/']
             Dir.mkdir "root" unless Dir.exist? "root"
             @abs_root = File.join(Dir.pwd, "root")
+            @from_name = nil
         end
 
         def usr_pwd
@@ -17,7 +18,7 @@ module SimpleFtp
             File.join [@abs_root, *@pwd, name]
         end
 
-        def handle_cwd(name)
+        def handle_cwd name
             path = abs_path(name)
             if File.directory? path
                 if name == '..'
@@ -31,7 +32,7 @@ module SimpleFtp
             end
         end
 
-        def handle_pwd
+        def handle_pwd option
             "257 \"#{usr_pwd}\" is the current directory"
         end
 
@@ -45,16 +46,23 @@ module SimpleFtp
         end
 
         def handle_retr name
-            file = File.open(abs_path(name), 'r')
-            @conn.respond "125 Data transfer starting #{file.size} bytes"
+            begin
+                file_path = abs_path(name)
+                return "550 RETR failed. File not found." unless File.exist? file_path
+                return "550 RETR failed. Cannot read a directory." if File.directory? file_path
 
-            size_bytes = IO.copy_stream(file, @data_socket)
-            @data_socket.close
+                file = File.open(abs_path(name), 'r')
+                @conn.respond "125 Data transfer starting #{file.size} bytes"
 
-            "226 Closing data connection, sent #{size_bytes} bytes"
+                size_bytes = IO.copy_stream(file, @data_socket)
+
+                return "226 Closing data connection, sent #{size_bytes} bytes"
+            ensure
+                @data_socket.close
+            end
         end
 
-        def handle_list
+        def handle_list option
             @conn.respond "125 Opening data connection for file list"
 
             result = Dir.entries(abs_path('')).join(CRLF)
@@ -64,39 +72,115 @@ module SimpleFtp
             "226 Closing data connection, sent #{result.size} bytes"
         end
 
-        def handle_quit
+        def handle_quit option
             "221 Goodbye"
         end
         
-        def handle_user
+        def handle_user option
             "230 Logged in anonymously"
         end
 
-        def handle_syst
+        def handle_syst option
             "215 UNIX Simple FTP"
+        end
+
+        def handle_dele name
+            file_path = abs_path(name)
+            begin
+                File.delete file_path
+            rescue => err
+                puts err
+                return "550 DELE failed."
+            end
+
+            "250 DELE successful"
+        end
+
+        def handle_mdtm name
+            file_path = abs_path name
+            return "550 no such file" unless File.exist? file_path
+            return "213 #{File.mtime(file_path).to_s}"
+        end
+
+        def handle_mkd name
+            file_path = abs_path name
+            begin
+                Dir.mkdir file_path
+            rescue => err
+                return "550 #{err.to_s}"
+            end
+
+            "257 \"#{File.join usr_pwd, name}\" created successfully"
+        end
+
+        def handle_rmd name
+            file_path = abs_path name
+            begin
+                Dir.rmdir file_path
+            rescue => err
+                return "550 #{err.to_s}"
+            end
+
+            "250 Directory deleted successfully"
+        end
+
+        def handle_size name
+            file_path = abs_path name
+            begin
+                size = File.size file_path
+                return "213 #{size}"
+            rescue => err
+                return "550 #{err.to_s}"
+            end
+        end
+
+        def handle_stor name
+            begin
+                file_path = abs_path(name)
+                return "550 RETR failed. File already exists." if File.exist? file_path
+
+                file = File.open(abs_path(name), 'w')
+                @conn.respond "125 Data transfer starting"
+
+                size_bytes = IO.copy_stream(@data_socket, file)
+
+                return "226 Closing data connection, sent #{size_bytes} bytes"
+            rescue => err
+                return "451 #{err.to_s}"
+            ensure
+                @data_socket.close
+            end
+        end
+
+        def handle_rnfr name
+            file_path = abs_path name
+            if File.exists? name 
+                @from_name = name
+                "350 File exists"
+            else
+                "550 File not Found"
+            end
+        end
+
+        def handle_rnto name
+            file_path = abs_path name
+            begin
+                puts @from_name
+                puts name
+                File.rename abs_path(@from_name), file_path
+            rescue => err
+                "550 #{err.to_s}"
+            end
+
+            "250 Rename successfully"
         end
 
         def handle(data)
             cmd, option = data.strip.split(/\s+/, 2)
-            case cmd.upcase
-            when 'USER'
-                handle_user 
-            when 'SYST'
-                handle_syst
-            when 'CWD'
-                handle_cwd option
-            when 'PWD'
-                handle_pwd
-            when 'PORT'
-                handle_port option
-            when 'RETR'
-                handle_retr option
-            when 'LIST'
-                handle_list
-            when 'QUIT'
-                handle_quit
+            method_name = "handle_#{cmd.downcase}"
+            if respond_to? method_name
+                send method_name, option
             else
-                # puts data
                 "502 Don't know how to respond to #{cmd}"
             end
         end
