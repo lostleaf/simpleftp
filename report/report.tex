@@ -1,0 +1,133 @@
+\documentclass[a4paper,11pt]{article}
+\usepackage{amsmath,amsthm,amsfonts,amssymb,bm} 
+\usepackage{graphicx,psfrag} 
+\usepackage{fancyhdr}
+\usepackage{color} 
+\usepackage{geometry}
+\usepackage{multirow}
+\usepackage{listings}
+\usepackage{enumerate}
+\usepackage{leftidx} 
+\usepackage{mathrsfs} 
+\usepackage{xeCJK}
+
+\usepackage{listings}
+\usepackage{color}
+
+\definecolor{mygreen}{rgb}{0,0.6,0}
+\definecolor{mygray}{rgb}{0.5,0.5,0.5}
+\definecolor{mymauve}{rgb}{0.58,0,0.82}
+
+\lstset{ %
+  backgroundcolor=\color{white},   % choose the background color; you must add \usepackage{color} or \usepackage{xcolor}
+  basicstyle=\footnotesize,        % the size of the fonts that are used for the code
+  breakatwhitespace=false,         % sets if automatic breaks should only happen at whitespace
+  breaklines=true,                 % sets automatic line breaking
+  captionpos=b,                    % sets the caption-position to bottom
+  commentstyle=\color{mygreen},    % comment style
+  deletekeywords={...},            % if you want to delete keywords from the given language
+  escapeinside={\%*}{*)},          % if you want to add LaTeX within your code
+  extendedchars=true,              % lets you use non-ASCII characters; for 8-bits encodings only, does not work with UTF-8
+  keepspaces=true,                 % keeps spaces in text, useful for keeping indentation of code (possibly needs columns=flexible)
+  keywordstyle=\bfseries,       % keyword style
+  language=Ruby,                 % the language of the code
+  morekeywords={*,...},            % if you want to add more keywords to the set
+  numbers=none,                    % where to put the line-numbers; possible values are (none, left, right)
+  numbersep=5pt,                   % how far the line-numbers are from the code
+  numberstyle=\tiny\color{mygray}, % the style that is used for the line-numbers
+  rulecolor=\color{black},         % if not set, the frame-color may be changed on line-breaks within not-black text (e.g. comments (green here))
+  showspaces=false,                % show spaces everywhere adding particular underscores; it overrides 'showstringspaces'
+  showstringspaces=false,          % underline spaces within strings only
+  showtabs=false,                  % show tabs within strings adding particular underscores
+  stepnumber=2,                    % the step between two line-numbers. If it's 1, each line will be numbered
+  stringstyle=\color{mymauve},     % string literal style
+  tabsize=2,                       % sets default tabsize to 2 spaces
+  title=\lstname                   % show the filename of files included with \lstinputlisting; also try caption instead of title
+}
+
+\setCJKmainfont[BoldFont=兰亭黑-简,ItalicFont=STKaiti]{STSong}
+\geometry{left=3.17cm,right=3.17cm,top=2.54cm,bottom=2.54cm}
+
+\begin{document}
+
+\pagestyle{fancy}
+\rfoot{\thepage}
+\rhead{\bfseries 计算机网络}
+\setlength{\parskip}{0.7ex plus0.2ex minus0.2ex}
+\cfoot{\empty}
+\lhead{\empty}
+
+
+\title{FTP实验报告}
+\author{李青林，5110307074}
+\date{}
+\maketitle
+
+\headheight 3pt
+\thispagestyle{fancy}
+\section{实验概况}
+本实验利用Ruby编程语言在Unix-like系统上完成了一个文件传输协议（FTP）的简单实现,利用Socket接口在应用层上通过TCP协议实现了FTP协议.
+\section{实验内容}
+\subsection{Server}
+Server需首先开启一个TCPSocket监听某一端口(默认为21,可配置),默认的根目录为同目录下的root文件夹.
+对于每一个请求,开启一个进程处理该请求.
+该进程将开启一个死循环,若接收到的信息(命令)不为空,则将该命令交给一个CMDHandler类处理,否则跳出死循环.
+
+CMDHandler类负责具体处理每条客户端发来的命令,维护用户当前目录等信息,目前支持如下命令
+\begin{enumerate}
+\item \textbf{CWD}
+更改CMDHandler类记录的当前目录
+\item \textbf{PWD}
+根据CMDHandler类记录的当前目录,返回该信息给用户
+\item \textbf{PORT}
+根据PORT命令中的相关信息,连接Client端的相应端口
+\item \textbf{RETR}
+读取相应文件,利用PORT命令建立的数据连接将文件传送给Client端
+\item \textbf{LIST}
+读取当前目录下地文件列表,利用PORT命令建立的数据连接将文件列表发送给Client端
+\item \textbf{QUIT}
+返回Goodbye并关闭所有TCP连接
+\item \textbf{USER}
+目前仅支持你们登录,即对所有USER命令返回登录成功
+\item \textbf{SYST}
+返回当前系统为UNIX
+\item \textbf{DELE}
+调用相应API尝试删除文件,并将结果返回给用户
+\item \textbf{MDTM}
+调用相应API尝试获取文件修改时间,并将结果返回给用户
+\item \textbf{MKD}
+调用相应API尝试建立目录,并将结果返回给用户
+\item \textbf{RMD}
+调用相应API尝试删除目录,并将结果返回给用户
+\item \textbf{SIZE}
+调用相应API尝试获取文件大小,并将结果返回给用户
+\item \textbf{STOR}
+从PORT命令建立的数据连接中获取文件数据,并保存在本地
+\item \textbf{RNFR}
+记录要改名的文件,将该文件存在与否的信息返回给用户
+\item \textbf{RNTO}
+调用相应API尝试文件改名,将改名结果返回给用户
+\end{enumerate}
+\subsection{Client}
+Client通过建立一个TCPSocket，连接相应Server的相应端口，并进入一个死循环，每次接受用户输入的命令，并将该命令转交给Handler类执行.
+
+Handler类负责具体处理用户输入的命令，为了方便用户使用，我自己根据Unix-like系统的文件操作命令及系统FTP的相应命令设计了如下一套客户端命令
+\begin{enumerate}
+    \item \textbf{pwd, cd, user, mkdir, rmdir, rm}
+        这几条命令的处理方式类似，都是发送相应的FTP命令及参数给Server，并显示执行结果.
+        其对应的FTP命令分别为PWD,CWD,USER,MKD,RMD,DELE.
+    \item \textbf{mv}
+        对于mv命令，首先发送一条RNFR命令，若执行成功，则发送一条RNTO命令，并将执行结果返回给用户.
+    \item \textbf{ls}
+        首先发送一条PORT命令，与Server建立一个数据连接，利用该连接获取文件列表并返回给客户，最后关闭数据连接.
+    \item \textbf{get}
+        首先发送一条PORT命令，与Server建立一个数据连接，利用该连接获取文件内容并存储在本地，返回给客户执行结果，最后关闭数据连接.
+    \item \textbf{put}
+        首先发送一条PORT命令，与Server建立一个数据连接，读取文件内容，并利用该连接将文件内容发送给Server，将执行结果返回给用户，最后关闭数据连接.
+    \item \textbf{bye}
+        发送QUIT给Server，关闭所有连接并退出客户端.
+\end{enumerate}
+\section{实验总结}
+通过这次实验,我理解了FTP协议的原理和协议细节,学习了利用Socket接口设计实现简单应用层协议,掌握了TCP网络应用程序的基本设计方法.
+
+\end{document}
